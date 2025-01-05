@@ -10,7 +10,7 @@ class Render:
         self.resource = resource
         self.page = self.resource.page
 
-    def draw_graphics(self, output_page: pymupdf.Page) -> pymupdf.Page:
+    def render_graphics(self, output_page: pymupdf.Page) -> None:
         paths = self.page.get_drawings()
         shape = output_page.new_shape()
 
@@ -60,7 +60,11 @@ class Render:
         # all paths processed - commit the shape to its page
         shape.commit()
 
-        self.resource.file.close()
+    def render_images(self, output_page: pymupdf.Page) -> None:
+        image_list = self.resource.extract_image_rect()
+        for image in image_list:
+            output_page.insert_image(image[1], pixmap=pymupdf.Pixmap(self.resource.file, image[0]))
+
     
 
 if __name__ == "__main__":
@@ -68,9 +72,11 @@ if __name__ == "__main__":
     doc = pymupdf.open()
     page = doc.new_page(width=e.page.rect.width, height=e.page.rect.height)
     r = Render(e)
-    r.draw_graphics(page)
+    r.render_graphics(page)
+    r.render_images(page)
     doc.save('test/output.pdf')
     doc.close()
+    e.file.close()
 
     
 
