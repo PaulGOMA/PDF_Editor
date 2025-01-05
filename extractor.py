@@ -13,7 +13,7 @@ class Extractor:
 
         try:
             self.page = self.file[page_number]
-        except IndexError as e:
+        except IndexError:
             print(f"La page {page_number} ne se trouve pas dans le document") 
             exit(1)    
 
@@ -23,13 +23,15 @@ class Extractor:
         for image in image_list:
             coords = self.page.get_image_rects(image)
             rect_image_list.append((image[0], coords[0]))
+
+        self.file.close()
         return rect_image_list
     
     def extract_image(self):
         image_list = self.page.get_images()
         if image_list != []:
             try:
-                os.mkdir('pdf_images')
+                os.mkdir('Images')
             except FileExistsError:
                 pass
             finally:
@@ -43,7 +45,9 @@ class Extractor:
                     pix.save(f"Images/{image[7]}.png")
                     pix = None 
         else:
-            print("Aucune image trouvée !!")   
+            print("Aucune image trouvée !!")
+
+        self.file.close()  
 
     def extract_image_json(self):
         images_list = self.page.get_image_info(True, True)
@@ -55,11 +59,13 @@ class Extractor:
         with open('JSON/images.json', 'w', encoding='utf-8') as output_file:
             output_file.write(json_object)
 
+        self.file.close()
+
 
     
 if __name__ == "__main__":
     e = Extractor('test/doc.pdf', 0)
-    e.extract_image_json()
+    e.extract_image()
 
 
             
