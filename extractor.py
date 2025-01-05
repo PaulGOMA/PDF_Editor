@@ -60,11 +60,16 @@ class Extractor:
         with open('JSON/images.json', 'w', encoding='utf-8') as output_file:
             output_file.write(json_object)
 
+    def extract_text_json(self):
+        content = self.page.get_text("json")
+        with open('JSON/infos.json', 'w', encoding='utf-8') as output_file:
+            output_file.write(content)
+
    
 if __name__ == "__main__":
-    e = Extractor('test/template.pdf', 0)
-    print(e.extract_image_rect())
+    e = Extractor('test/doc.pdf', 0)
     e.extract_image_json()
+    e.extract_text_json()
     e.file.close()
 
 
