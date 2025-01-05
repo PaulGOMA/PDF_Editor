@@ -19,14 +19,17 @@ class Extractor:
 
     def extract_image_rect(self) -> list:
         image_list = self.page.get_images()
-        rect_image_list = []
-        for image in image_list:
-            coords = self.page.get_image_rects(image)
-            rect_image_list.append((image[0], coords[0]))
+        if image_list != []:
+            rect_image_list = []
+            for image in image_list:
+                coords = self.page.get_image_rects(image)
+                rect_image_list.append((image[0], coords[0]))
 
-        self.file.close()
-        return rect_image_list
-    
+            return rect_image_list
+        else:
+            print("Aucune image trouvée !!")
+            return
+   
     def extract_image(self):
         image_list = self.page.get_images()
         if image_list != []:
@@ -47,8 +50,6 @@ class Extractor:
         else:
             print("Aucune image trouvée !!")
 
-        self.file.close()  
-
     def extract_image_json(self):
         images_list = self.page.get_image_info(True, True)
         for img in images_list:
@@ -59,13 +60,12 @@ class Extractor:
         with open('JSON/images.json', 'w', encoding='utf-8') as output_file:
             output_file.write(json_object)
 
-        self.file.close()
-
-
-    
+   
 if __name__ == "__main__":
-    e = Extractor('test/doc.pdf', 0)
-    e.extract_image()
+    e = Extractor('test/template.pdf', 0)
+    print(e.extract_image_rect())
+    e.extract_image_json()
+    e.file.close()
 
 
             
