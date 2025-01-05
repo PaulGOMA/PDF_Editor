@@ -1,1 +1,3 @@
-.virtual_env
+.virtual_env/
+test/
+JSON/
