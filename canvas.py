@@ -22,7 +22,7 @@ def centerWindow(window: QWidget) -> None:
 
 
 class CustomGraphicsItem(QGraphicsItem):
-    def __init__(self, bounding_rect: Rect, type_shape: QBrush | QPen | tuple, path: QPainterPath | QRectF):
+    def __init__(self, bounding_rect: Rect, type_shape: QPen | tuple, path: QPainterPath | QRectF):
         super().__init__()
         self.bounding_rect = bounding_rect
         self.path = path
@@ -32,13 +32,8 @@ class CustomGraphicsItem(QGraphicsItem):
         bounding = QRectF(QPoint(self.bounding_rect.x0, self.bounding_rect.y0), QPoint(self.bounding_rect.x1, self.bounding_rect.y1))
         return bounding
     
-    def paint(self, painter: QPainter, option, widget):
-        if isinstance(self.type_shape, QBrush):
-            painter.setBrush(self.type_shape)
-            painter.setPen(self.type_shape.color())
-            painter.drawRect(self.path) if isinstance(self.path, QRectF) else painter.drawPath(self.path)
-        
-        elif isinstance(self.type_shape, QPen):
+    def paint(self, painter: QPainter, option, widget):        
+        if isinstance(self.type_shape, QPen):
             painter.setPen(self.type_shape)
             painter.drawRect(self.path) if isinstance(self.path, QRectF) else painter.drawPath(self.path)
 
@@ -52,7 +47,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.r = Extractor('test/doc.pdf', 0)
+        self.page = Extractor('test/template.pdf', 0)
+        self.graphics_list = self.page.extract_graphics()
         self.setWindowTitle('Canvas')
         self.setMinimumSize(900, 900)
         centerWindow(self)
@@ -76,24 +72,68 @@ class MainWindow(QMainWindow):
         view.setRenderHint(QPainter.Antialiasing)
 
         self.draw()
+        
 
+    def type_draw(self, graphic: dict) -> tuple | QPen:
+        
+        if graphic['type'] == 'f':
+            brush = QBrush(QColor(int(graphic['fill'][0] * 255), int(graphic['fill'][1] * 255), int(graphic['fill'][2] * 255)))
+            pen = QPen(brush.color())
+            return brush, pen
+        
+        elif graphic['type'] == 's':
+            pen = QPen(QColor(int(graphic['color'][0] * 255), int(graphic['color'][1] * 255), int(graphic['color'][2] * 255)))               
+            pen.setWidth(int(graphic['width']))
 
-    def type_draw(self, type: str, fill: tuple | None, color: tuple | None, width: float | None) -> QBrush | QPen | tuple:
-        if type == 'f':
-            brush = QBrush(QColor(int(fill[0] * 255), int(fill[1] * 255), int(fill[2] * 255)))
-            return brush
-        elif type == 's':
-            pen = QPen(QColor(int(color[0] * 255), int(color[1] * 255), int(color[2] * 255)))               
-            pen.setWidth(int(width))
+            if graphic['lineCap'] is not None:
+                line_cap = int(max(graphic['lineCap'])) if isinstance(graphic['lineCap'], tuple) else int(graphic['lineCap'])
+                if line_cap == 1:
+                    pen.setCapStyle(Qt.RoundCap)
+                elif line_cap == 2:
+                    pen.setCapStyle(Qt.SquareCap)
+                else:
+                    pen.setCapStyle(Qt.FlatCap)
+
+            if graphic['lineJoin'] is not None:
+                line_join = int(max(graphic['lineJoin'])) if isinstance(graphic['lineJoin'], tuple) else int(graphic['lineJoin'])
+                if line_join == 1:
+                    pen.setJoinStyle(Qt.RoundJoin)
+                elif line_join == 2:
+                    pen.setJoinStyle(Qt.MiterJoin)
+                else:
+                    pen.setJoinStyle(Qt.BevelJoin)
+
             return pen
-        elif type == 'fs':
-            brush = QBrush(QColor(int(fill[0] * 255), int(fill[1] * 255), int(fill[2] * 255)))
-            pen = QPen(QColor(int(color[0] * 255), int(color[1] * 255), int(color[2] * 255)))
-            pen.setWidth(int(width))
+        
+        elif graphic['type'] == 'fs':
+            brush = QBrush(QColor(int(graphic['fill'][0] * 255), int(graphic['fill'][1] * 255), int(graphic['fill'][2] * 255)))
+            pen = QPen(QColor(int(graphic['color'][0] * 255), int(graphic['color'][1] * 255), int(graphic['color'][2] * 255)))               
+            pen.setWidth(int(graphic['width']))
+
+            if graphic['lineCap'] is not None:
+                line_cap = int(max(graphic['lineCap'])) if isinstance(graphic['lineCap'], tuple) else int(graphic['lineCap'])
+                if line_cap == 1:
+                    pen.setCapStyle(Qt.RoundCap)
+                elif line_cap == 2:
+                    pen.setCapStyle(Qt.SquareCap)
+                else:
+                    pen.setCapStyle(Qt.FlatCap)
+
+            if graphic['lineJoin'] is not None:
+                line_join = int(max(graphic['lineJoin'])) if isinstance(graphic['lineJoin'], tuple) else int(graphic['lineJoin'])
+                if line_join == 1:
+                    pen.setJoinStyle(Qt.RoundJoin)
+                elif line_join == 2:
+                    pen.setJoinStyle(Qt.MiterJoin)
+                else:
+                    pen.setJoinStyle(Qt.BevelJoin)
+
             return brush, pen
 
+        
+    def get_paths(self, graphic: dict) -> QRectF | QPainterPath:
 
-    def get_paths(self, paths_list: list, even_odd: bool | None) -> QRectF | QPainterPath:
+        paths_list = graphic['items']
 
         if paths_list[0][0] == "re":
             item = paths_list[0][1]
@@ -111,82 +151,34 @@ class MainWindow(QMainWindow):
                 if item[0] == 'l':
                     p2 = item[2]
                     path.lineTo(p2.x, p2.y)
+                    path.closeSubpath()
+                    
                 elif item[0] == 'c':
                     p2 = item[2]
                     p3 = item[3]
                     p4 = item[4]
                     path.cubicTo(QPoint(p2.x, p2.y), QPoint(p3.x, p3.y), QPoint(p4.x, p4.y))
+                    path.closeSubpath()
 
 
-            if even_odd is not None:
-                path.setFillRule(Qt.OddEvenFill) if even_odd else path.setFillRule(Qt.WindingFill)
+            if graphic['even_odd'] is not None:
+                path.setFillRule(Qt.OddEvenFill) if graphic['even_odd'] else path.setFillRule(Qt.WindingFill)
 
         return path
 
 
     def draw(self):
-        graphic_list = self.r.extract_graphics()
 
-        for graphic in graphic_list:
-            fill = graphic['fill']
-            color = graphic['color']
-            width = graphic['width']
-            fill_opacity = graphic['fill_opacity']
-            stroke_opacity = graphic['stroke_opacity']
-            even_odd = graphic["even_odd"]
+        for graphic in self.graphics_list:
 
-            path = self.get_paths(graphic['items'], even_odd)
-            result = self.type_draw(graphic['type'], fill, color, width)
+            path = self.get_paths(graphic)
+            result = self.type_draw(graphic)
+            drawing = CustomGraphicsItem(bounding_rect=graphic['rect'], type_shape=result, path=path)
 
-            if isinstance(result, QBrush):
-                drawing = CustomGraphicsItem(bounding_rect=graphic['rect'], type_shape=result, path=path)
-            
-            elif isinstance(result, QPen):                    
-                if graphic['lineCap'] is not None:
-                    line_cap = int(max(graphic['lineCap'])) if isinstance(graphic['lineCap'], tuple) else int(graphic['lineCap'])
-                    if line_cap == 1:
-                        result.setCapStyle(Qt.RoundCap)
-                    elif line_cap == 2:
-                        result.setCapStyle(Qt.SquareCap)
-                    else:
-                        result.setCapStyle(Qt.FlatCap)
-
-                if graphic['lineJoin'] is not None:
-                    line_join = int(max(graphic['lineJoin'])) if isinstance(graphic['lineJoin'], tuple) else int(graphic['lineJoin'])
-                    if line_join == 1:
-                        result.setJoinStyle(Qt.RoundJoin)
-                    elif line_join == 2:
-                        result.setJoinStyle(Qt.MiterJoin)
-                    else:
-                        result.setJoinStyle(Qt.BevelJoin)
-
-                drawing = CustomGraphicsItem(bounding_rect=graphic['rect'], type_shape=result, path=path)
-
-            elif isinstance(result, tuple): 
-                if graphic['lineCap'] is not None:
-                    line_cap = int(max(graphic['lineCap'])) if isinstance(graphic['lineCap'], tuple) else int(graphic['lineCap'])
-                    if line_cap == 1:
-                        result[1].setCapStyle(Qt.RoundCap)
-                    elif line_cap == 2:
-                        result[1].setCapStyle(Qt.SquareCap)
-                    else:
-                        result[1].setCapStyle(Qt.FlatCap)
-
-                if graphic['lineJoin'] is not None:
-                    line_join = int(max(graphic['lineJoin'])) if isinstance(graphic['lineJoin'], tuple) else int(graphic['lineJoin'])
-                    if line_join == 1:
-                        result[1].setJoinStyle(Qt.RoundJoin)
-                    elif line_join == 2:
-                        result[1].setJoinStyle(Qt.MiterJoin)
-                    else:
-                        result[1].setJoinStyle(Qt.BevelJoin)
-
-                drawing = CustomGraphicsItem(bounding_rect=graphic['rect'], type_shape=result, path=path)
-
-            if fill_opacity is not None:
-                drawing.setOpacity(fill_opacity)
-            elif stroke_opacity is not None:
-                drawing.setOpacity(stroke_opacity)   
+            if graphic['fill_opacity'] is not None:
+                drawing.setOpacity(graphic['fill_opacity'])
+            elif graphic['stroke_opacity'] is not None:
+                drawing.setOpacity(graphic['stroke_opacity'])   
             
             self.scene.addItem(drawing)
 
