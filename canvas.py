@@ -1,8 +1,12 @@
 import sys
-from PySide6.QtWidgets import QApplication, QWidget, QMainWindow, QGraphicsScene, QGraphicsView, QGraphicsRectItem, QGraphicsPathItem, QGraphicsItem
+import os
+import shutil
+import json
+from PySide6.QtWidgets import QApplication, QWidget, QMainWindow, QGraphicsScene, QGraphicsView, QGraphicsItem, QGraphicsPixmapItem, QGraphicsTextItem
 from PySide6.QtCore import QSize, QRectF, QPoint, Qt
-from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QPainterPath
+from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QPainterPath, QPixmap, QFont
 from pymupdf import Rect
+from pymupdf import sRGB_to_rgb
 
 from extractor import Extractor
 
@@ -28,6 +32,8 @@ class CustomGraphicsItem(QGraphicsItem):
         self.path = path
         self.type_shape = type_shape
 
+        self.boundingRect()
+
     def boundingRect(self) -> QRectF:
         bounding = QRectF(QPoint(self.bounding_rect.x0, self.bounding_rect.y0), QPoint(self.bounding_rect.x1, self.bounding_rect.y1))
         return bounding
@@ -41,14 +47,35 @@ class CustomGraphicsItem(QGraphicsItem):
             painter.setBrush(self.type_shape[0])
             painter.setPen(self.type_shape[1])
             painter.drawRect(self.path) if isinstance(self.path, QRectF) else painter.drawPath(self.path)
-        
+
+
+class CustomGraphicsPixmapItem(QGraphicsPixmapItem):
+    def __init__(self, bounding_rect: Rect, filename: str):
+        super().__init__()
+        self.bounding_rect = bounding_rect
+        self.filename = filename
+
+        self.setPixmap(QPixmap(self.filename).scaled(int(abs(self.bounding_rect.x1 - self.bounding_rect.x0)), int(abs(self.bounding_rect.y1 - self.bounding_rect.y0))))
+        self.setOffset(QPoint(QPoint(self.bounding_rect.x0, self.bounding_rect.y0)))
+
+
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.page = Extractor('test/template.pdf', 0)
+        self.page = Extractor('test/document.pdf', 0)
         self.graphics_list = self.page.extract_graphics()
+
+        if os.path.exists('JSON/infos.json'):
+            os.remove('JSON/infos.json')
+        
+        self.page.extract_text_json()
+        
+        with open('JSON/infos.json', 'r') as file:
+            self.texts_dict = json.load(file)
+        
         self.setWindowTitle('Canvas')
         self.setMinimumSize(900, 900)
         centerWindow(self)
@@ -72,7 +99,12 @@ class MainWindow(QMainWindow):
         view.setRenderHint(QPainter.Antialiasing)
 
         self.draw()
-        
+     
+        if self.close():
+            if os.path.exists('Images'):
+                shutil.rmtree('Images')
+
+
 
     def type_draw(self, graphic: dict) -> tuple | QPen:
         
@@ -182,6 +214,52 @@ class MainWindow(QMainWindow):
             
             self.scene.addItem(drawing)
 
+        
+        if self.page.extract_image():
+            images_list = self.page.extract_image_rect()
+
+            for content in images_list:
+                image = CustomGraphicsPixmapItem(content[1], f"Images/{content[2]}.png")
+                self.scene.addItem(image)
+
+        if self.texts_dict['blocks'] != []:
+            for block in self.texts_dict['blocks']:
+                if block['type'] == 0:
+                    for line in block['lines']:
+                        for span in line['spans']:
+                            self.span = span
+                            if 'timesnewroman'.lower() in self.span['font'].lower():
+                                font_family = "times New Roman"
+                            elif 'cambria'.lower() in self.span['font'].lower():
+                                font_family = "Cambria"
+                            else:
+                                font_family = "times New Roman"
+
+                            text_font = QFont(font_family, (int(self.span['size']) - 4))
+
+                            if 'bold'.lower() in self.span['font'].lower():
+                                text_font.setBold(True)
+
+                            font_color = sRGB_to_rgb(self.span['color'])
+                            
+                            text = QGraphicsTextItem()
+                            text.setFont(text_font)
+                            text.setDefaultTextColor(QColor(font_color[0], font_color[1], font_color[2]))
+                            text.setTextInteractionFlags(Qt.TextEditorInteraction )
+                            text.setPlainText(self.span['text'])
+                            text.update(QRectF(QPoint(self.span['bbox'][0], self.span['bbox'][1]), QPoint(self.span['bbox'][2], self.span['bbox'][3])))
+                            text.setPos(QPoint((self.span['origin'][0] - 4), (self.span['origin'][1]) - 15))
+            
+                            self.scene.addItem(text)
+
+
+
+
+        
+        
+
+
+    
                     
 
 if __name__ == '__main__':
