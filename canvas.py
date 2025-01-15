@@ -175,22 +175,19 @@ class MainWindow(QMainWindow):
         else:
             path = QPainterPath()
 
+            start_point = paths_list[0]
+            path.moveTo(start_point[1].x, start_point[1].y)
+
             for item in paths_list:
-
-                p1 = item[1]
-                path.moveTo(p1.x, p1.y)
-
                 if item[0] == 'l':
                     p2 = item[2]
                     path.lineTo(p2.x, p2.y)
-                    path.closeSubpath()
                     
                 elif item[0] == 'c':
                     p2 = item[2]
                     p3 = item[3]
                     p4 = item[4]
                     path.cubicTo(QPoint(p2.x, p2.y), QPoint(p3.x, p3.y), QPoint(p4.x, p4.y))
-                    path.closeSubpath()
 
 
             if graphic['even_odd'] is not None:
@@ -235,7 +232,7 @@ class MainWindow(QMainWindow):
                             else:
                                 font_family = "times New Roman"
 
-                            text_font = QFont(font_family, (int(self.span['size']) - 4))
+                            text_font = QFont(font_family, (int(self.span['size']) - 3))
 
                             if 'bold'.lower() in self.span['font'].lower():
                                 text_font.setBold(True)
@@ -245,7 +242,7 @@ class MainWindow(QMainWindow):
                             text = QGraphicsTextItem()
                             text.setFont(text_font)
                             text.setDefaultTextColor(QColor(font_color[0], font_color[1], font_color[2]))
-                            text.setTextInteractionFlags(Qt.TextEditorInteraction )
+                            text.setTextInteractionFlags(Qt.TextEditorInteraction)
                             text.setPlainText(self.span['text'])
                             text.update(QRectF(QPoint(self.span['bbox'][0], self.span['bbox'][1]), QPoint(self.span['bbox'][2], self.span['bbox'][3])))
                             text.setPos(QPoint((self.span['origin'][0] - 4), (self.span['origin'][1]) - 15))
@@ -253,6 +250,7 @@ class MainWindow(QMainWindow):
                             self.scene.addItem(text)
 
 
+    
 
 
         
