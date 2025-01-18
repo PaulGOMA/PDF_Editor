@@ -2,17 +2,31 @@
 ## This file contains classes for extracting graphics from a page belongs to a pdf file and drawing them in a new pdf file.
 """
 
+import os
 import pymupdf
 from extractor import Extractor
 
 class Render:
-    def __init__(self, resource: Extractor) -> None:
-        self.resource = resource
-        self.page = self.resource.page
+    def __init__(self) -> None:
+        self.page = Extractor('test/fiche2.pdf', 0)
+        self.doc = pymupdf.open()
+        page_width = self.page.page.rect.width
+        page_height = self.page.page.rect.height
+        self.output_page = self.doc.new_page(width=page_width, height=page_height)
+        
+        if os.path.exists('JSON/infos.json'):
+            os.remove('JSON/infos.json')
+        
+        # self.page.extract_text_json()
+        
+        # with open('JSON/infos.json', 'r') as file:
+        #     self.texts_dict = json.load(file)
 
-    def render_graphics(self, output_page: pymupdf.Page) -> None:
-        paths = self.page.get_drawings()
-        shape = output_page.new_shape()
+        self.texts_dict = self.page.page.get_text("dict")
+
+    def render_graphics(self) -> None:
+        paths = self.page.extract_graphics()
+        shape = self.output_page.new_shape()
 
         # loop through the paths and draw them
         for path in paths:
@@ -60,27 +74,58 @@ class Render:
         # all paths processed - commit the shape to its page
         shape.commit()
 
-    def render_images(self, output_page: pymupdf.Page) -> None:
-        image_list = self.resource.extract_image_rect()
+    def render_images(self) -> None:
+        image_list = self.page.extract_image_rect()
         for image in image_list:
-            output_page.insert_image(image[1], pixmap=pymupdf.Pixmap(self.resource.file, image[0]))
+            self.output_page.insert_image(image[1], pixmap=pymupdf.Pixmap(self.page.file, image[0]))
 
-    
+    def render_texts(self) -> None:       
+        if self.texts_dict['blocks'] != []:
+            for block in self.texts_dict['blocks'] :
+                if block['type'] == 0:
+                    for line in block['lines']:
+                        for span in line['spans']:
+                            
+                            font_file = None
+                            if 'times'.lower() in span['font'].lower():
+                                if 'bold'.lower() in span['font'].lower():
+                                    # font_file = "font/TimesNewRoman-Bold.ttf"
+                                    # font_name = "times-new-roman-bold"
+                                    font_name = "tibo"
+                                else:
+                                    # font_name = "font/TimesNewRoman.ttf"
+                                    # font_name = "times-new-roman"
+                                    font_name = "tiro"
+                            elif 'cambria'.lower() in span['font'].lower():
+                                if 'bold'.lower() in span['font'].lower():
+                                    font_file = "font/Cambria-Bold.ttf"
+                                    font_name = "cambria-bold"
+                                else:
+                                    font_file = "font/Cambria.ttf"
+                                    font_name = "cambria"
+                            else:
+                                font_name = "tiro"
+
+                            self.output_page.insert_text(
+                                point=pymupdf.Point(
+                                    span['origin'][0], 
+                                    span['origin'][1]
+                                ),
+                                text= span['text'] if "\u2019" not in span['text'] else span['text'].replace("\u2019", "'"),
+                                fontsize=span['size'],
+                                fontname=font_name,
+                                fontfile=font_file if font_file is not None else None,
+                                color=pymupdf.sRGB_to_pdf(span['color'])
+                            )
+
 
 if __name__ == "__main__":
-    e = Extractor('test/doc.pdf', 0)
-    doc = pymupdf.open()
-    page = doc.new_page(width=e.page.rect.width, height=e.page.rect.height)
-    r = Render(e)
-    r.render_graphics(page)
-    r.render_images(page)
-    doc.save('test/output.pdf')
-    doc.close()
-    e.file.close()
-
-    
-
-
+    r = Render()
+    r.render_graphics()
+    # r.render_images()
+    r.render_texts()  # Appeler la nouvelle fonction pour ajouter les textes
+    r.doc.save('test/output.pdf')
+    r.doc.close()
 
 
            
